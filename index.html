@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Q9 in Action</title>
+<style type="text/css" media="screen">
+    div#exTab3 {
+      float:left;
+      width:620px;
+    }
+    div.editor { 
+      width:600px;
+      height:800px;
+			border:1px solid #DDD;
+    }
+    body {
+      width: 1400px;
+      margin:auto;
+    }
+    div#toggler {
+      width:120px;
+      margin:auto;
+    }
+    select#toggler {
+      font-size: 15px;
+    }
+    div.hidden-code {
+      display:none;
+    }
+    a#play {
+      display: inline-block;
+      background: url(images/play.png) no-repeat;
+			-webkit-background-size: contain;
+    	-moz-background-size: contain;
+    	-o-background-size: contain;
+    	background-size: contain;
+      width: 60px;
+      height: 60px;
+      margin: 350px 20px;
+    }
+</style>
+<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" />
+</head>
+<body>
+
+<div id="toggler">
+  <select id="toggler">
+    <option value="ba">e-Banking</option>
+    <option value="mb">Twitter</option>
+  </select>
+</div>
+
+
+<div id="exTab3" class="container">	
+  <ul  class="nav nav-pills">
+    <li class="active">
+      <a href="#1b" data-toggle="tab">App</a>
+    </li>
+    <li><a href="#2b" data-toggle="tab">Compiled IR</a>
+    </li>
+  </ul>
+
+  <div class="tab-content clearfix">
+    <div class="tab-pane active" id="1b">
+      <div id="editor1" class="editor"> </div>
+    </div>
+    <div class="tab-pane" id="2b">
+      <div id="editor2" class="editor"> </div>
+    </div>
+  </div>
+</div>
+
+<div id="play">
+  <a id="play" href="#"></a>
+</div>
+
+<div id="crdt_ba_ml" class="hidden-code">
+open Crdts
+
+module BankAccount_Types = struct
+  type account = {id:Uuid.t; name:string; mutable bal:CRInt.t}
+  type accounts_table =  account CRTable.t
+  type ba_db = {accounts_table: accounts_table}
+end
+
+open BankAccount_Types
+
+module Account(S:sig
+                   val t: accounts_table
+                 end) = struct
+  open S
+
+  let get_balance (acc_id:Uuid.t) =
+    CRTable.find (fun {bal} -> CRInt.get bal)
+              (fun {id} -> id = acc_id) t
+
+  let deposit (acc_id:Uuid.t) amt =
+    CRTable.update (fun {bal} -> CRInt.add amt bal)
+      (fun {id} -> id = acc_id) t
+
+  let withdraw (acc_id:Uuid.t) amt =
+    if get_balance acc_id >= amt then
+      begin
+        CRTable.update (fun {bal} -> CRInt.add (0-amt) bal)
+          (fun {id} -> id = acc_id) t;
+        true
+      end
+    else false
+end
+
+module Banking_App(S:sig
+                      val db: ba_db
+                    end) = struct
+  module BA = Account(struct
+                       let t = S.db.accounts_table
+                      end)
+  open BA
+  let transfer_txn (acc_id1:Uuid.t) (acc_id2:Uuid.t) amt =
+    let status = withdraw acc_id1 amt in
+    if status then deposit acc_id2 amt else ()
+end
+</div>
+
+<div id="eff_ba_ml" class="hidden-code">
+module BA =
+struct
+  type id = Uuid.t
+  type eff = Deposit of {amt:int}
+    | Withdraw of {amt:int}
+    | GetBalance
+end
+
+module BA_table =
+struct
+  include Store_interface.Make(BA)
+end
+
+let compute_bal eff = 
+  match eff with 
+ | Some e -> (match e with 
+                | BA.Withdraw {amt=a} -> 0-a
+                | BA.Deposit {amt=a} -> a
+                | _ -> 0)
+ | None -> 0
+
+let add_bals b acc = b + acc
+
+let get_balance acc_id = 
+  let ctxt = BA_table.get acc_id (BA.GetBalance) in
+  let bals = List.map compute_bal ctxt in
+  let bal = List.fold_right add_bals bals 0 in
+    bal
+
+let do_withdraw acc_id a = 
+  let cur_bal = get_balance acc_id in
+    if (cur_bal >= a) then
+      (BA_table.append acc_id (BA.Withdraw {amt=a}); true)
+    else false
+
+let inv_fun acc_id' = 
+  let bal = get_balance acc_id' in
+    bal >= 0
+</div>
+
+<div id="crdt_mb_ml" class="hidden-code">
+open Crdts
+
+module Microblog_Types = struct
+  type user = {id:Uuid.t; name:string; mutable followers:Uuid.t CRSet.t}
+  type users_table =  user CRTable.t
+  type tweet = {id:Uuid.t; author_id: Uuid.t; content: string}
+  type tweets_table = tweet CRTable.t
+  type line_item = {id:Uuid.t; tweet_id:Uuid.t}
+  type userline_table = line_item CRTable.t
+  type timeline_table = line_item CRTable.t
+  type mb_db = {users_table:users_table; 
+                tweets_table: tweets_table; 
+                userline_table: userline_table;
+                timeline_table: timeline_table}
+end
+
+open Microblog_Types
+
+module User(S:sig 
+                 val t: users_table 
+               end) = struct
+  open S
+
+  let add_follower (user_id:Uuid.t) (follower_id: Uuid.t) =
+    CRTable.update 
+      (fun {followers} -> CRSet.add follower_id followers) 
+      (fun {id} -> id=user_id) t
+
+  let remove_follower (user_id:Uuid.t) (follower_id: Uuid.t) =
+    CRTable.update 
+      (fun {followers} -> CRSet.remove follower_id followers) 
+      (fun {id} -> id=user_id) t
+
+  let get_followers (user_id:Uuid.t) : Uuid.t list = 
+    CRTable.find (fun {followers} -> CRSet.get followers) 
+       (fun {id} -> id = user_id) t
+end
+
+
+module Userline(S:sig 
+                    val t: userline_table 
+                  end) = struct
+  open S
+
+  let add (user_id:Uuid.t) (tweet_id:Uuid.t) = 
+    CRTable.insert {id=user_id; tweet_id=tweet_id} t
+end
+
+module Timeline(S:sig 
+                    val t: timeline_table 
+                  end) = struct
+  open S
+
+  let add (user_id:Uuid.t) (tweet_id:Uuid.t) = 
+    CRTable.insert {id=user_id; tweet_id=tweet_id} t
+end
+
+module Tweet(S:sig
+                val t: tweets_table
+               end) = struct
+  open S
+
+  let add tweet_id author_id content = 
+    CRTable.insert {id=tweet_id; author_id=author_id; 
+                    content=content} t
+end
+     
+module MicroblogApp(S:sig 
+                        val db: mb_db 
+                      end) = struct
+  open S
+  module User = User(struct let t = db.users_table end)
+  module Userline = Userline(struct let t = db.userline_table end)
+  module Timeline = Timeline(struct let t = db.userline_table end)
+  module Tweet = Tweet(struct let t = db.tweets_table end)
+
+  let do_new_tweet (uid:Uuid.t) (str:string) = 
+    let tweet_id = Uuid.create () in
+    let fols = User.get_followers uid in
+    begin
+      Tweet.add tweet_id uid str;
+      Userline.add uid tweet_id;
+      List.iter (fun fid -> Timeline.add fid tweet_id) fols;
+    end
+
+end
+</div>
+
+<div id="eff_mb_ml" class="hidden-code">
+module User = 
+struct
+  type id = Uuid.t
+  type eff = Add of {username: string; pwd: string}
+    | AddFollower of {follower_id: id; timestamp: int}
+    | RemFollower of {follower_id: id;timestamp: int} 
+    | GetFollowers
+end
+module User_table =
+struct
+  include Store_interface.Make(User)
+end
+
+module UserName = 
+struct
+  type id = string
+  type eff = Add of {user_id: User.id} | GetId
+end
+module UserName_table =
+struct
+  include Store_interface.Make(UserName)
+end
+
+module Tweet =
+struct
+  type id = Uuid.t
+  type eff = New of {author_id:User.id; content:string}
+    | Get
+end
+module Tweet_table =
+struct
+  include Store_interface.Make(Tweet)
+end
+
+module Timeline = 
+struct
+  type id = User.id
+  type eff = NewTweet of {tweet_id:Tweet.id}
+    | Get
+end
+module Timeline_table =
+struct
+  include Store_interface.Make(Timeline)
+end
+
+module Userline = 
+struct
+  type id = User.id
+  type eff = NewTweet of {tweet_id:Tweet.id}
+    | Get
+end
+module Userline_table =
+
+struct
+  include Store_interface.Make(Userline)
+end
+
+let rec first f b l = match l with
+  | [] -> b
+  | x::xs -> match x with 
+      | Some y -> if f y then y 
+          else first f b xs
+      | None -> first f b xs
+
+let is_gte ts tsop' = match tsop' with 
+ | Some ts' -> ts' <= ts 
+ | None -> true
+
+let is_max_in (ts_list : int option list) (ts:int) = 
+  List.forall ts_list (is_gte ts)
+    
+let rec max_ts (ts_list: int option list) : int= 
+  first (is_max_in ts_list) (0-1) ts_list
+
+let if_af_get_ts (fid:User.id) (eff: User.eff option) = match eff with
+  | Some x -> (match x with
+      | User.AddFollower {follower_id=fid'; 
+                     timestamp=ts} -> 
+          if fid'=fid then Some ts else None
+      | _ -> None)
+  | None -> None
+
+let if_rf_get_ts (fid:User.id) (eff: User.eff option) = match eff with
+  | Some x -> (match x with
+      | User.RemFollower {follower_id=fid'; 
+                     timestamp=ts} -> 
+          if fid'=fid then Some ts else None
+      | _ -> None)
+  | None -> None
+
+let is_follower fid ctxt = 
+  let af_ts = List.map (if_af_get_ts fid) ctxt in
+  let rf_ts = List.map (if_rf_get_ts fid) ctxt in
+  let max_af_ts = max_ts af_ts in
+  let max_rf_ts = max_ts rf_ts in
+    max_af_ts >= max_rf_ts
+
+let get_fid ctxt' eff = 
+  match eff with 
+  | Some x -> 
+      (match x with 
+         | User.AddFollower {follower_id=fid; 
+                             timestamp=ts} -> 
+             if (is_follower fid ctxt') then Some fid else None
+         | _ -> None)
+  | _ -> None
+
+let new_tweet tweet_id' fidop = 
+  match fidop with 
+  | Some fid -> Timeline_table.append fid 
+             (Timeline.NewTweet {tweet_id=tweet_id'})
+  | None -> ()
+
+let do_new_tweet (uid:Uuid.t) (str:string) = 
+  let ctxt = User_table.get uid (User.GetFollowers) in
+  let fids = List.map (get_fid ctxt) ctxt in
+  let tweet_id = Uuid.create() in
+    begin
+      Tweet_table.append tweet_id (Tweet.New {author_id=uid; content=str});
+      Userline_table.append uid (Userline.NewTweet {tweet_id=tweet_id});
+      List.iter (new_tweet tweet_id) fids;
+    end
+
+let exists_tweet e' =
+   match e' with 
+   | Some y -> (match y with 
+                  | (Tweet.New _) -> true 
+                  | _ -> false)
+   | _ -> false
+
+let exists_in_tweet_table e = 
+  match e with
+  | Some x -> 
+      (match x with 
+         | Userline.NewTweet {tweet_id=tid} -> 
+             List.exists (Tweet_table.get tid Tweet.Get) exists_tweet
+         | _ -> false)
+  | _ -> true
+
+let inv_fun uid' = 
+  List.forall (Userline_table.get uid' (Userline.Get)) exists_in_tweet_table
+</div>
+    
+<script src="/ace-builds/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+<script src="/scripts/index.js"> </script>
+</body>
+</html>
