@@ -6,8 +6,11 @@ use Ratchet\ConnectionInterface;
 
 require 'q9_class.php';
 
-$app = new Ratchet\App("tryq9.com", 8080, '0.0.0.0');
-$app->route('/q9', new Q9);
+require './vendor/autoload.php';
+
+$loop = \React\EventLoop\Factory::create();
+$app = new Ratchet\App("tryq9.com", 8080, '0.0.0.0', $loop);
+$app->route('/q9', new Q9($loop));
 
 $app->run();
 

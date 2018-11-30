@@ -3,49 +3,8 @@
 <head>
 <title>Q9 in Action</title>
 <style type="text/css" media="screen">
-    div#exTab3 {
-      float:left;
-      width:620px;
-    }
-    div.editor { 
-      width:600px;
-      height:800px;
-			border:1px solid #DDD;
-    }
-    body {
-      width: 1400px;
-      margin:auto;
-    }
-    div#toggler {
-      width:120px;
-      margin:auto;
-    }
-    select#toggler {
-      font-size: 15px;
-    }
-    div.hidden-code {
-      display:none;
-    }
-    a#play {
-      background: url(images/play.png) no-repeat;
-			-webkit-background-size: contain;
-    	-moz-background-size: contain;
-    	-o-background-size: contain;
-    	background-size: contain;
-      float:left;
-      width: 60px;
-      height: 60px;
-      margin: 350px 20px;
-    }
-    div#console {
-      float:left;
-      width:500px;
-      height:300px;
-      overflow:auto;
-			border: 1px solid #DDD;
-      margin: 40px 40px;
-    }
 </style>
+<link rel="stylesheet" href="/styles/index.css" />
 <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" />
 </head>
 <body>
@@ -81,9 +40,18 @@
   <a id="play" href="#"></a>
 </div>
 
-<div id="console">
-  $&gt;
+<div id="rhs">
+  <div id="console" class="shell-wrap">
+	<p class="shell-top-bar">/Users/q9_user</p>
+	<ul class="shell-body">
+    <li class="prompt"> </li>
+    <li></li>
+	</ul>
+  </div>
+  <div id="ce_display">
+  </div>
 </div>
+
 
 <div id="crdt_ba_ml" class="hidden-code">
 open Crdts

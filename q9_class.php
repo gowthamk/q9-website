@@ -2,7 +2,9 @@
 //namespace Q9App;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
-use React\Stream\Stream as Stream;
+use React\Stream\ReadableResourceStream as Stream;
+
+require './vendor/autoload.php';
 
 class Q9 implements MessageComponentInterface {
 
@@ -40,20 +42,26 @@ class Q9 implements MessageComponentInterface {
     echo("File generated\n");
     $cmd = './q6 -k 4 -c store_interface.mli store_interface.ml uuid.mli uuid.ml q6_interface.ml '.$app;
     flush();
-    $handle = popen($cmd, "r");
-    if (is_resource($handle)) {
+    $stream = new Stream(popen($cmd, "r"),$this->loop);
+    $stream->on('data', function($data) use ($conn) {
+      $conn->send($data);
+      echo($data);
+    });
+		$stream->on('end', function () use ($conn){
+      $conn->send("QUIT");
+			echo 'END';
+		});
+    /*if (is_resource($handle)) {
         echo("Running..\n");
         while ($s = fgets($handle)) {
             $conn->send($s);
             echo($s);
         }
-        /*$s = fgets($pipes[2]);
-        echo($s);*/
     }
     else {
         echo("Command couldn't run\n");
     }
-    $conn->send("QUIT");
+    $conn->send("QUIT");*/
   }
 
   public function onClose(ConnectionInterface $conn) {

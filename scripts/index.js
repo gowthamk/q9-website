@@ -12,28 +12,37 @@ function set_eg(app) {
   editor2.setValue(eff_ml,-1);
 }
 
-function change_eg() {
-  var console = $('div#console');
-  console.html("");
-  set_eg(this.value);
+function on_click_ce(e) {
+  e.preventDefault();
+  var href = $(this).attr('href');
+  var display = $('div#ce_display'); 
+  display.css("background", "url('"+href+"') no-repeat");
+  display.css("background-size", "contain");
 }
-
-$('select#toggler').on('change',change_eg);
-set_eg($('select#toggler option:selected').val());
 
 /* web sockets */
 function connect() {
   var sock = new WebSocket("ws://tryq9.com:8080/q9");
   sock.onmessage = function(event) {
     var msg = event.data;
-    var console = $('div#console');
-    var html = console.html();
     if(msg.includes("QUIT")){
-      console.html(html+"$> ");
-      alert("Done");
+			$('div#console ul').append('<li class="prompt"></li><li></li>');
+      $('a.ce_link').click(on_click_ce);
     } 
     else {
-      console.html(html+msg+"<br />");
+      var msg = msg.replace('\t','<span class="spc" />');
+      var last_li = $('div#console ul li').last();
+      var li_html = last_li.html();
+      last_li.html(li_html+msg);
+      if(msg.endsWith("\n")) {
+        $('div#console ul').append('<li></li>');
+      }
+      /*else {
+        console.log("#"+msg+"#");
+        var last_li = $('div#console ul li').last();
+        var li_html = last_li.html();
+        last_li.html(li_html+msg);
+      }*/
     }
   }
   sock.onerror = function(event) {
@@ -47,9 +56,20 @@ function connect() {
 
 var sock = connect();
 
-function on_play() {
-  var console = $('div#console');
-  var html = console.html();
+function change_eg() {
+  var console = $('div#console ul');
+  console.html('<li class="prompt"></li><li></li>');
+  $('div#ce_display').removeAttr("style");
+  set_eg(this.value);
+}
+
+$('select#toggler').on('change',change_eg);
+set_eg($('select#toggler option:selected').val());
+
+function on_play(e) {
+  e.preventDefault();
+  var last_prompt = $('div#console ul li.prompt').last();
+  last_prompt.html("./q9_analyze");
   var app = $('select#toggler option:selected').val();
   var eff_ml = editor2.getValue();
   var data = {app:app, code:eff_ml};
