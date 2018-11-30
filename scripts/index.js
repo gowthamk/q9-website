@@ -13,8 +13,49 @@ function set_eg(app) {
 }
 
 function change_eg() {
+  var console = $('div#console');
+  console.html("");
   set_eg(this.value);
 }
 
 $('select#toggler').on('change',change_eg);
 set_eg($('select#toggler option:selected').val());
+
+/* web sockets */
+function connect() {
+  var sock = new WebSocket("ws://tryq9.com:8080/q9");
+  sock.onmessage = function(event) {
+    var msg = event.data;
+    var console = $('div#console');
+    var html = console.html();
+    if(msg.includes("QUIT")){
+      console.html(html+"$> ");
+      alert("Done");
+    } 
+    else {
+      console.html(html+msg+"<br />");
+    }
+  }
+  sock.onerror = function(event) {
+    alert("Socket error. Please retry!");
+  }
+  sock.onopen = function(event) {
+    $('a#play').click(on_play);
+  }
+  return sock;
+}
+
+var sock = connect();
+
+function on_play() {
+  var console = $('div#console');
+  var html = console.html();
+  var app = $('select#toggler option:selected').val();
+  var eff_ml = editor2.getValue();
+  var data = {app:app, code:eff_ml};
+  /*$.post("q9.php", data,
+         function(data,status) {alert(status);});*/
+  sock.send(JSON.stringify(data));
+}
+
+

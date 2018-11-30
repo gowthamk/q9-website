@@ -27,15 +27,23 @@
       display:none;
     }
     a#play {
-      display: inline-block;
       background: url(images/play.png) no-repeat;
 			-webkit-background-size: contain;
     	-moz-background-size: contain;
     	-o-background-size: contain;
     	background-size: contain;
+      float:left;
       width: 60px;
       height: 60px;
       margin: 350px 20px;
+    }
+    div#console {
+      float:left;
+      width:500px;
+      height:300px;
+      overflow:auto;
+			border: 1px solid #DDD;
+      margin: 40px 40px;
     }
 </style>
 <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" />
@@ -71,6 +79,10 @@
 
 <div id="play">
   <a id="play" href="#"></a>
+</div>
+
+<div id="console">
+  $&gt;
 </div>
 
 <div id="crdt_ba_ml" class="hidden-code">
