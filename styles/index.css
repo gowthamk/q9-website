@@ -1,6 +1,7 @@
 div#exTab3 {
 	float:left;
 	width:620px;
+  margin-left:100px;
 }
 div.editor { 
 	width:600px;
@@ -8,7 +9,7 @@ div.editor {
 	border:1px solid #DDD;
 }
 body {
-	width: 1400px;
+	width: 1600px;
 	margin:auto;
 }
 div#toggler {
@@ -47,8 +48,8 @@ div#ce_display {
 	-moz-background-size: contain;
 	-o-background-size: contain;
 	background-size: contain;
-	width: 500px;
-	height: 400px;
+	width: 600px;
+	height: 500px;
 }
 span.spc {
 	display: inline-block;
@@ -127,4 +128,14 @@ span.spc {
   word-wrap: break-word;
   position: relative;
   padding: 0 0 0 15px;
+}
+
+div#footer {
+  clear: left;
+  text-align: center;
+}
+
+ul#footer-ul li {
+  display: inline;
+  padding: 0px 30px;
 }
